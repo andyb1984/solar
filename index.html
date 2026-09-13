@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Energy Dashboard (24h)</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --accent-pv: #10b981;
+            --accent-load: #ef4444;
+            --accent-batt: #f59e0b;
+            --accent-grid: #3b82f6;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 12px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        #status-footer {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-sub);
+            margin-bottom: 8px;
+        }
+
+        .card-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .card-sub {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            margin-top: 4px;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .chart-box {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 16px;
+            position: relative;
+        }
+
+        @media (min-width: 900px) {
+            .charts-container {
+                grid-template-columns: 2fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>System Telemetry Dashboard</h1>
+            <div id="status-footer">Connecting...</div>
+        </header>
+
+        <!-- Metric Cards -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">PV Array 1</div>
+                <div class="card-value" id="val-pv1" style="color: var(--accent-pv);">-- W</div>
+                <div class="card-sub" id="sub-pv1">-- V | -- A</div>
+            </div>
+            <div class="card">
+                <div class="card-title">PV Array 2</div>
+                <div class="card-value" id="val-pv2" style="color: var(--accent-pv);">-- W</div>
+                <div class="card-sub" id="sub-pv2">-- V | -- A</div>
+            </div>
+            <div class="card">
+                <div class="card-title">House Load</div>
+                <div class="card-value" id="val-load" style="color: var(--accent-load);">-- W</div>
+                <div class="card-sub">Active Demand</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Battery State</div>
+                <div class="card-value" id="val-batt" style="color: var(--accent-batt);">-- %</div>
+                <div class="card-sub" id="sub-batt">-- | -- W</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Grid Power</div>
+                <div class="card-value" id="val-grid" style="color: var(--accent-grid);">-- W</div>
+                <div class="card-sub" id="sub-grid">-- | -- V</div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-container">
+            <div class="chart-box">
+                <canvas id="powerChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <canvas id="socChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Setup Chart.js instances
+        const powerCtx = document.getElementById('powerChart').getContext('2d');
+        const socCtx = document.getElementById('socChart').getContext('2d');
+
+        const powerChart = new Chart(powerCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'House Load (W)', data: [], borderColor: '#ef4444', borderWidth: 1.5, fill: false, pointRadius: 0 },
+                    { label: 'PV1 (W)', data: [], borderColor: '#10b981', borderWidth: 1.5, fill: false, pointRadius: 0 },
+                    { label: 'PV2 (W)', data: [], borderColor: '#34d399', borderWidth: 1.5, fill: false, pointRadius: 0 },
+                    { label: 'Battery Power (W)', data: [], borderColor: '#f59e0b', borderWidth: 1.5, fill: false, pointRadius: 0 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 }, grid: { color: '#334155' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                },
+                plugins: { legend: { labels: { color: '#f8fafc' } } }
+            }
+        });
+
+        const socChart = new Chart(socCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'Battery SOC (%)', data: [], borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, fill: true, pointRadius: 0 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: '#94a3b8', maxTicksLimit: 6 }, grid: { color: '#334155' } },
+                    y: { min: 0, max: 100, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                },
+                plugins: { legend: { labels: { color: '#f8fafc' } } }
+            }
+        });
+
+        // Polling function for telemetry.json
+        async function fetchTelemetry() {
+            try {
+                // Add timestamp query parameter to bypass local browser cache
+                const response = await fetch('./telemetry.json?cachebust=' + new Date().getTime());
+                if (!response.ok) return;
+
+                const dataArray = await response.json();
+                if (!Array.isArray(dataArray) || dataArray.length === 0) return;
+
+                // Extract latest data point for top metric cards
+                const latest = dataArray[dataArray.length - 1];
+
+                document.getElementById('val-pv1').innerText = latest.p1.toFixed(1) + ' W';
+                document.getElementById('sub-pv1').innerText = `${latest.v1.toFixed(1)} V | ${latest.a1.toFixed(2)} A`;
+                
+                document.getElementById('val-pv2').innerText = latest.p2.toFixed(1) + ' W';
+                document.getElementById('sub-pv2').innerText = `${latest.v2.toFixed(1)} V | ${latest.a2.toFixed(2)} A`;
+                
+                document.getElementById('val-load').innerText = latest.house_load.toFixed(1) + ' W';
+
+                const battState = latest.batt_pwr > 50 ? 'Discharging' : (latest.batt_pwr < -50 ? 'Charging' : 'Idle');
+                document.getElementById('val-batt').innerText = latest.soc.toFixed(1) + ' %';
+                document.getElementById('sub-batt').innerText = `${battState} | ${latest.batt_pwr.toFixed(0)} W`;
+
+                const gridState = latest.grid_pwr > 50 ? 'Importing' : (latest.grid_pwr < -50 ? 'Exporting' : 'Neutral');
+                document.getElementById('val-grid').innerText = latest.grid_pwr.toFixed(0) + ' W';
+                document.getElementById('sub-grid').innerText = `${gridState} | ${latest.grid_v.toFixed(1)} V`;
+
+                // Update charts with historical data array
+                const timestamps = dataArray.map(d => new Date(d.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                
+                powerChart.data.labels = timestamps;
+                powerChart.data.datasets[0].data = dataArray.map(d => d.house_load);
+                powerChart.data.datasets[1].data = dataArray.map(d => d.p1);
+                powerChart.data.datasets[2].data = dataArray.map(d => d.p2);
+                powerChart.data.datasets[3].data = dataArray.map(d => d.batt_pwr);
+                powerChart.update();
+
+                socChart.data.labels = timestamps;
+                socChart.data.datasets[0].data = dataArray.map(d => d.soc);
+                socChart.update();
+
+                const timeStr = new Date(latest.timestamp * 1000).toLocaleTimeString();
+                document.getElementById('status-footer').innerText = `Live Stream Active • Last Update: ${timeStr}`;
+
+            } catch (e) {
+                document.getElementById('status-footer').innerText = 'Status: Fetch error, retrying...';
+            }
+        }
+
+        // Poll every 10 seconds
+        fetchTelemetry();
+        setInterval(fetchTelemetry, 10000);
+    </script>
+</body>
+</html>
