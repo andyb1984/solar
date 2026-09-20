@@ -1,0 +1,14 @@
+Register,Parameter,Data Type,Scale Factor,Unit,Notes
+4112,Solar String 1 (SE) Voltage,uint16,0.1,V,DC voltage across PV String 1
+4113,Solar String 1 (SE) Current,uint16,0.01,A,Live DC current from PV String 1
+4115,Solar String 1 (SE) Power,uint16,0.1,W,Generation power for String 1
+4116,Solar String 2 (NW) Voltage,uint16,0.1,V,DC voltage across PV String 2
+4117,Solar String 2 (NW) Current,uint16,0.01,A,Live DC current from PV String 2
+4119,Solar String 2 (NW) Power,uint16,0.1,W,Generation power for String 2
+4875,House Load Power (Home Demand),uint16,0.1,W,Live house load; set parsing to uint16 to prevent negative values >3.27 kW
+8192,Battery State of Charge (SoC),uint16,1.0,%,Remaining battery capacity percentage
+8198,Battery Terminal Voltage,uint16,0.1,V,DC voltage at battery terminals
+8200,Battery Current,int16,0.01,A,"Battery DC current flow (Negative = Charging, Positive = Discharging)"
+8202,Battery Power,int16,0.1,W,"Live charge/discharge wattage (Negative = Charge, Positive = Discharge)"
+4890,Grid AC Voltage,uint16,0.1,V,Live AC mains utility voltage
+4894,Grid CT Current,int16,0.01,A,Live AC current at grid import/export clamp
