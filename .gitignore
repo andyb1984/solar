@@ -1,0 +1,15 @@
+# Local logs and CSV data archives
+dura_i_full_telemetry.csv
+Solar Generation Profiles.csv
+dura_i_full_telemetry_graphs_totals.csv
+
+# Old or backup python scripts
+*_old.py
+*_backup.py
+
+# Reference notes
+modbus_registers.txt
+input_file_0.png
+
+# macOS system files
+.DS_Store
