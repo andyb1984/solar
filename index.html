@@ -12,10 +12,12 @@
             --card-bg: #1e293b;
             --text-main: #f8fafc;
             --text-sub: #94a3b8;
-            --accent-pv: #10b981;
+            --accent-pv1: #10b981;
+            --accent-pv2: #06b6d4; /* Distinct Cyan for PV2 */
             --accent-load: #ef4444;
             --accent-batt: #f59e0b;
             --accent-grid: #3b82f6;
+            --accent-day: #2dd4bf;
         }
 
         body {
@@ -83,6 +85,13 @@
             margin-top: 4px;
         }
 
+        .card-day {
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: var(--accent-day);
+            margin-top: 6px;
+        }
+
         .charts-container {
             display: grid;
             grid-template-columns: 1fr;
@@ -114,36 +123,41 @@
             <div id="status-footer">Connecting...</div>
         </header>
 
-        <!-- Metric Cards -->
+        <!-- Metric Cards with Daily Counters -->
         <div class="grid">
-            <div class="card">
-                <div class="card-title">PV Array 1</div>
-                <div class="card-value" id="val-pv1" style="color: var(--accent-pv);">-- W</div>
+            <div class="card" style="border-left: 4px solid var(--accent-pv1);">
+                <div class="card-title">PV Array 1 (SE)</div>
+                <div class="card-value" id="val-pv1" style="color: var(--accent-pv1);">-- W</div>
                 <div class="card-sub" id="sub-pv1">-- V | -- A</div>
+                <div class="card-day" id="day-pv1">Today: -- kWh</div>
             </div>
-            <div class="card">
-                <div class="card-title">PV Array 2</div>
-                <div class="card-value" id="val-pv2" style="color: var(--accent-pv);">-- W</div>
+            <div class="card" style="border-left: 4px solid var(--accent-pv2);">
+                <div class="card-title">PV Array 2 (NW)</div>
+                <div class="card-value" id="val-pv2" style="color: var(--accent-pv2);">-- W</div>
                 <div class="card-sub" id="sub-pv2">-- V | -- A</div>
+                <div class="card-day" id="day-pv2">Today: -- kWh</div>
             </div>
-            <div class="card">
+            <div class="card" style="border-left: 4px solid var(--accent-load);">
                 <div class="card-title">House Load</div>
                 <div class="card-value" id="val-load" style="color: var(--accent-load);">-- W</div>
                 <div class="card-sub">Active Demand</div>
+                <div class="card-day">&nbsp;</div>
             </div>
-            <div class="card">
+            <div class="card" style="border-left: 4px solid var(--accent-batt);">
                 <div class="card-title">Battery State</div>
                 <div class="card-value" id="val-batt" style="color: var(--accent-batt);">-- %</div>
                 <div class="card-sub" id="sub-batt">-- | -- W</div>
+                <div class="card-day">&nbsp;</div>
             </div>
-            <div class="card">
+            <div class="card" style="border-left: 4px solid var(--accent-grid);">
                 <div class="card-title">Grid Power</div>
                 <div class="card-value" id="val-grid" style="color: var(--accent-grid);">-- W</div>
                 <div class="card-sub" id="sub-grid">-- | -- V</div>
+                <div class="card-day" id="day-grid">In: -- | Out: -- kWh</div>
             </div>
         </div>
 
-        <!-- Charts Section -->
+        <!-- Charts Section (24h Power, 1h Power, Battery/Grid SoC) -->
         <div class="charts-container">
             <div class="chart-box chart-box-full">
                 <canvas id="powerChart"></canvas>
@@ -158,7 +172,6 @@
     </div>
 
     <script>
-        // Setup Chart.js instances
         const powerCtx = document.getElementById('powerChart').getContext('2d');
         const power1hCtx = document.getElementById('powerChart1h').getContext('2d');
         const socCtx = document.getElementById('socChart').getContext('2d');
@@ -166,8 +179,8 @@
         function createPowerDatasets() {
             return [
                 { label: 'House Load (W)', data: [], borderColor: '#ef4444', borderWidth: 1.5, fill: false, pointRadius: 0 },
-                { label: 'PV1 (W)', data: [], borderColor: '#10b981', borderWidth: 1.5, fill: false, pointRadius: 0 },
-                { label: 'PV2 (W)', data: [], borderColor: '#34d399', borderWidth: 1.5, fill: false, pointRadius: 0 },
+                { label: 'PV1 (SE)', data: [], borderColor: '#10b981', borderWidth: 1.5, fill: false, pointRadius: 0 },
+                { label: 'PV2 (NW)', data: [], borderColor: '#06b6d4', borderWidth: 1.5, fill: false, pointRadius: 0 }, // Distinct Cyan
                 { label: 'Battery Power (W)', data: [], borderColor: '#f59e0b', borderWidth: 1.5, fill: false, pointRadius: 0 },
                 { label: 'Grid Power (W)', data: [], borderColor: '#3b82f6', borderWidth: 1.5, fill: false, pointRadius: 0 }
             ];
@@ -270,15 +283,17 @@
                 const dataArray = await response.json();
                 if (!Array.isArray(dataArray) || dataArray.length === 0) return;
 
-                // Update metric cards
                 const latest = dataArray[dataArray.length - 1];
 
+                // Update metric cards with live values & daily counters
                 document.getElementById('val-pv1').innerText = latest.p1.toFixed(1) + ' W';
                 document.getElementById('sub-pv1').innerText = `${latest.v1.toFixed(1)} V | ${latest.a1.toFixed(2)} A`;
-                
+                document.getElementById('day-pv1').innerText = `Today: ${(latest.pv1_day_kwh || 0).toFixed(2)} kWh`;
+
                 document.getElementById('val-pv2').innerText = latest.p2.toFixed(1) + ' W';
                 document.getElementById('sub-pv2').innerText = `${latest.v2.toFixed(1)} V | ${latest.a2.toFixed(2)} A`;
-                
+                document.getElementById('day-pv2').innerText = `Today: ${(latest.pv2_day_kwh || 0).toFixed(2)} kWh`;
+
                 document.getElementById('val-load').innerText = latest.house_load.toFixed(1) + ' W';
 
                 const battState = latest.batt_pwr > 50 ? 'Discharging' : (latest.batt_pwr < -50 ? 'Charging' : 'Idle');
@@ -288,6 +303,7 @@
                 const gridState = latest.grid_pwr > 50 ? 'Importing' : (latest.grid_pwr < -50 ? 'Exporting' : 'Neutral');
                 document.getElementById('val-grid').innerText = latest.grid_pwr.toFixed(0) + ' W';
                 document.getElementById('sub-grid').innerText = `${gridState} | ${latest.grid_v.toFixed(1)} V`;
+                document.getElementById('day-grid').innerText = `In: ${(latest.import_day_kwh || 0).toFixed(2)} | Out: ${(latest.export_day_kwh || 0).toFixed(2)} kWh`;
 
                 // 1. Update 24-Hour Power Chart
                 const timestampsFull = dataArray.map(d => new Date(d.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -326,7 +342,6 @@
             }
         }
 
-        // Poll every 10 seconds
         fetchTelemetry();
         setInterval(fetchTelemetry, 10000);
     </script>
