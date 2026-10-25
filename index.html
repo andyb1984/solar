@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Duracell Dura-i & Home Assistant Telemetry</title>
+    <title>Duracell Dura-i & Climate Telemetry Dashboard</title>
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -177,9 +177,12 @@
                 <canvas id="powerChart"></canvas>
             </div>
             <div class="chart-box">
-                <canvas id="socChart"></canvas>
+                <canvas id="powerChart1h"></canvas>
             </div>
             <div class="chart-box">
+                <canvas id="socChart"></canvas>
+            </div>
+            <div class="chart-box chart-box-full">
                 <canvas id="tempChart"></canvas>
             </div>
         </div>
@@ -187,21 +190,23 @@
 
     <script>
         const powerCtx = document.getElementById('powerChart').getContext('2d');
+        const power1hCtx = document.getElementById('powerChart1h').getContext('2d');
         const socCtx = document.getElementById('socChart').getContext('2d');
         const tempCtx = document.getElementById('tempChart').getContext('2d');
 
+        function createPowerDatasets() {
+            return [
+                { label: 'House Load (W)', data: [], borderColor: '#EF5350', borderWidth: 1.5, fill: false, pointRadius: 0 },
+                { label: 'PV1 (SE)', data: [], borderColor: '#00E676', borderWidth: 1.5, fill: false, pointRadius: 0 },
+                { label: 'PV2 (NW)', data: [], borderColor: '#FF9100', borderWidth: 1.5, fill: false, pointRadius: 0 },
+                { label: 'Battery Power (W)', data: [], borderColor: '#FFD700', borderWidth: 1.5, fill: false, pointRadius: 0 },
+                { label: 'Grid Power (W)', data: [], borderColor: '#29B6F6', borderWidth: 1.5, fill: false, pointRadius: 0 }
+            ];
+        }
+
         const powerChart = new Chart(powerCtx, {
             type: 'line',
-            data: { 
-                labels: [], 
-                datasets: [
-                    { label: 'House Load (W)', data: [], borderColor: '#EF5350', borderWidth: 1.5, fill: false, pointRadius: 0 },
-                    { label: 'PV1 (SE)', data: [], borderColor: '#00E676', borderWidth: 1.5, fill: false, pointRadius: 0 },
-                    { label: 'PV2 (NW)', data: [], borderColor: '#FF9100', borderWidth: 1.5, fill: false, pointRadius: 0 },
-                    { label: 'Battery Power (W)', data: [], borderColor: '#FFD700', borderWidth: 1.5, fill: false, pointRadius: 0 },
-                    { label: 'Grid Power (W)', data: [], borderColor: '#29B6F6', borderWidth: 1.5, fill: false, pointRadius: 0 }
-                ] 
-            },
+            data: { labels: [], datasets: createPowerDatasets() },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -212,6 +217,23 @@
                 plugins: { 
                     legend: { labels: { color: '#f8fafc', boxWidth: 12 } },
                     title: { display: true, text: '24-Hour Power Balance (W)', color: '#f8fafc' }
+                }
+            }
+        });
+
+        const powerChart1h = new Chart(power1hCtx, {
+            type: 'line',
+            data: { labels: [], datasets: createPowerDatasets() },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: '#94a3b8', maxTicksLimit: 6 }, grid: { color: '#334155' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'Watts (W)', color: '#94a3b8' } }
+                },
+                plugins: { 
+                    legend: { labels: { color: '#f8fafc', boxWidth: 12 } },
+                    title: { display: true, text: 'Past Hour Power Flow (W)', color: '#f8fafc' }
                 }
             }
         });
@@ -301,10 +323,9 @@
                 document.getElementById('sub-weather').innerText = `Sky: ${String(latest.weather_condition || 'N/A').replace('-', ' ')}`;
                 document.getElementById('day-weather').innerText = `Hum: ${latest.weather_humidity || 0}% | Wind: ${latest.weather_wind || 0} km/h`;
 
-                // Update Charts
-                const timestamps = dataArray.map(d => new Date(d.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-                
-                powerChart.data.labels = timestamps;
+                // Update 24h Power Chart
+                const timestampsFull = dataArray.map(d => new Date(d.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                powerChart.data.labels = timestampsFull;
                 powerChart.data.datasets[0].data = dataArray.map(d => d.house_load);
                 powerChart.data.datasets[1].data = dataArray.map(d => d.p1);
                 powerChart.data.datasets[2].data = dataArray.map(d => d.p2);
@@ -312,12 +333,27 @@
                 powerChart.data.datasets[4].data = dataArray.map(d => d.grid_pwr);
                 powerChart.update();
 
-                socChart.data.labels = timestamps;
+                // Update 1h Power Chart
+                const oneHourAgo = latest.timestamp - 3600;
+                const dataArray1h = dataArray.filter(d => d.timestamp >= oneHourAgo);
+                const timestamps1h = dataArray1h.map(d => new Date(d.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+                
+                powerChart1h.data.labels = timestamps1h;
+                powerChart1h.data.datasets[0].data = dataArray1h.map(d => d.house_load);
+                powerChart1h.data.datasets[1].data = dataArray1h.map(d => d.p1);
+                powerChart1h.data.datasets[2].data = dataArray1h.map(d => d.p2);
+                powerChart1h.data.datasets[3].data = dataArray1h.map(d => d.batt_pwr);
+                powerChart1h.data.datasets[4].data = dataArray1h.map(d => d.grid_pwr);
+                powerChart1h.update();
+
+                // Update SOC Chart
+                socChart.data.labels = timestampsFull;
                 socChart.data.datasets[0].data = dataArray.map(d => d.soc);
                 socChart.data.datasets[1].data = dataArray.map(d => d.grid_pwr);
                 socChart.update();
 
-                tempChart.data.labels = timestamps;
+                // Update Temperature Chart
+                tempChart.data.labels = timestampsFull;
                 tempChart.data.datasets[0].data = dataArray.map(d => d.hive_current_temp);
                 tempChart.data.datasets[1].data = dataArray.map(d => d.weather_temp);
                 tempChart.update();
